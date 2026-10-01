@@ -1,0 +1,49 @@
+{
+  "name": "bb-plugin-agentic-mermaid",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.43",
+    "bbPluginSdk": ">=0.5.9"
+  },
+  "bb": {
+    "name": "Agentic Mermaid",
+    "description": "Replaces bb's chat Mermaid renderer with agentic-mermaid. Git graphs and unsupported diagram types keep the stock renderer.",
+    "branding": {
+      "icon": "./assets/icon.svg"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "skills": []
+  },
+  "dependencies": {
+    "agentic-mermaid": "0.4.1"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.5.9",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "better-sqlite3": "^12.0.0",
+    "@types/react-dom": "^19.0.0",
+    "hono": "^4.11.9",
+    "@types/react": "^19.0.0",
+    "@types/better-sqlite3": "^7.6.12"
+  },
+  "description": "Replaces bb's chat Mermaid renderer with agentic-mermaid. Git graphs and unsupported diagram types keep the stock renderer.",
+  "license": "MIT",
+  "scripts": {
+    "build": "bb plugin build",
+    "typecheck": "tsc --noEmit"
+  },
+  "author": "bottlebrushes",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bottlebrushes/bb-plugin-agentic-mermaid.git"
+  },
+  "homepage": "https://github.com/bottlebrushes/bb-plugin-agentic-mermaid",
+  "keywords": [
+    "bb-plugin",
+    "mermaid",
+    "diagrams"
+  ]
+}

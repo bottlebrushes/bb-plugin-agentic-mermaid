@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "node"
+    ],
+    "skipLibCheck": false,
+    "noEmit": true,
+    "resolveJsonModule": true
+  },
+  "include": [
+    "server.ts",
+    "app.tsx",
+    "mermaid-renderer.ts",
+    "renderer-route.ts",
+    "stock-diagrams.ts"
+  ]
+}
