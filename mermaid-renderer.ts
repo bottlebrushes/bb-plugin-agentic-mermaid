@@ -46,15 +46,53 @@ type MermaidRender = (id: string, text: string, container?: Element) => Promise<
 type MermaidApi = { render: MermaidRender };
 type RendererModule = { renderMermaidSVGAsync: typeof renderMermaidSVGAsync };
 
+const FRONT_MATTER = /^\s*---\r?\n[\s\S]*?\r?\n---\s*(\r?\n|$)/;
+const FLOWCHART_HEADER = /^(\s*(?:flowchart(?:-elk)?|graph)\s+)(LR|RL)\b/i;
+const GITGRAPH_HEADER = /^(\s*gitGraph)(?:\s+LR)?\s*:?(\r?)$/i;
+/** `direction` statements: flowchart subgraphs, state, class, and ER diagrams. */
+const DIRECTION_STATEMENT = /^(\s*direction\s+)(LR|RL)\b/i;
+const PLUGIN_MARK = "data-agentic-mermaid";
+
 /** First diagram keyword after front matter, `%%` comments/directives, and blank lines, lowercased. */
 function diagramKeyword(source: string): string {
-  const lines = source.replace(/^\s*---\r?\n[\s\S]*?\r?\n---\s*(\r?\n|$)/, "").split(/\r?\n/);
+  const lines = source.replace(FRONT_MATTER, "").split(/\r?\n/);
   for (const line of lines) {
     const trimmed = line.trim();
     if (trimmed === "" || trimmed.startsWith("%%")) continue;
     return (trimmed.match(/^[\w-]+/)?.[0] ?? "").toLowerCase();
   }
   return "";
+}
+
+/** Replacer for the direction regexes: LR becomes TB, RL becomes BT. */
+const VERTICAL_DIRECTION = (_match: string, head: string, direction: string) =>
+  head + (direction.toUpperCase() === "RL" ? "BT" : "TB");
+
+/**
+ * Lay every diagram out top-to-bottom: bb's chat column is narrow and scrolls
+ * vertically, so a left-right diagram is shrunk to fit its width until unreadable.
+ * Rewrites the flowchart/graph header, `direction` statements, and the gitGraph
+ * orientation. Other families have no direction to change.
+ */
+function verticalize(source: string): string {
+  const frontMatter = source.match(FRONT_MATTER)?.[0] ?? "";
+  let headerSeen = false;
+  const lines = source
+    .slice(frontMatter.length)
+    .split("\n")
+    .map((line) => {
+      if (headerSeen) return line.replace(DIRECTION_STATEMENT, VERTICAL_DIRECTION);
+      const trimmed = line.trim();
+      if (trimmed === "" || trimmed.startsWith("%%")) return line;
+      headerSeen = true;
+      return line.replace(FLOWCHART_HEADER, VERTICAL_DIRECTION).replace(GITGRAPH_HEADER, "$1 TB:$2");
+    });
+  return frontMatter + lines.join("\n");
+}
+
+/** Tag a stock SVG as drawn through this plugin, so stock-diagrams.ts leaves it alone. */
+function markSvg(svg: string): string | null {
+  return /^<svg\b/.test(svg) ? svg.replace(/^<svg\b/, `<svg ${PLUGIN_MARK}=""`) : null;
 }
 
 /**
@@ -118,7 +156,7 @@ function scopeRules(rules: CSSRuleList, root: string): void {
  */
 function scopeSvg(svg: string, id: string): string {
   return svg
-    .replace(/^<svg\b/, `<svg id="${id}" data-agentic-mermaid=""`)
+    .replace(/^<svg\b/, `<svg id="${id}" ${PLUGIN_MARK}=""`)
     .replace(/<style>([\s\S]*?)<\/style>/g, (_match, css: string) => {
       const sheet = new CSSStyleSheet();
       sheet.replaceSync(css);
@@ -180,11 +218,25 @@ export async function installAgenticMermaid(pluginId: string, signal: AbortSigna
 
   const original = mermaid.render;
   const patched: MermaidRender = async function (this: unknown, id, text, container) {
-    const svg = await renderAgentic(id, text);
-    return svg === null ? original.call(this, id, text, container) : { svg, diagramType: diagramKeyword(text) };
+    const vertical = verticalize(text);
+    const svg = await renderAgentic(id, vertical);
+    if (svg !== null) return { svg, diagramType: diagramKeyword(vertical) };
+    const result = await original.call(this, id, vertical, container);
+    return { ...result, svg: markSvg(result.svg) ?? result.svg };
   };
   mermaid.render = patched;
-  const stopUpgrading = upgradeStockDiagrams(renderAgentic);
+  const stopUpgrading = upgradeStockDiagrams(async (id, text) => {
+    const vertical = verticalize(text);
+    const svg = await renderAgentic(id, vertical);
+    if (svg !== null || vertical === text) return svg;
+    // A stock-only family (gitGraph) bb drew left-right before this plugin loaded: redraw it vertically.
+    // Unmarked output would be picked up again by the stock-diagram observer, so it is dropped.
+    try {
+      return markSvg((await original.call(mermaid, id, vertical)).svg);
+    } catch {
+      return null;
+    }
+  });
 
   return () => {
     stopUpgrading();

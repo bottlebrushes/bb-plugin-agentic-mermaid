@@ -10,6 +10,8 @@ Replaces bb's chat Mermaid renderer with [agentic-mermaid](https://github.com/ad
 
 Colors come from bb's design tokens (`--foreground`, `--muted-foreground`, `--primary`, `--surface-recessed-solid`), so diagrams follow the active theme and switch between light and dark without re-rendering.
 
+Every diagram is laid out top-to-bottom, because bb's chat column is narrow and scrolls vertically and a left-right diagram gets shrunk until unreadable. Before rendering, `flowchart`/`graph` headers and `direction` statements (subgraphs, state, class, ER) change `LR` to `TB` and `RL` to `BT`, and `gitGraph` gets `TB:`. The source view still shows what the agent wrote. Sequence, gantt, timeline, journey, and the other families have no direction setting and are unchanged.
+
 ## Install
 
 ```sh
